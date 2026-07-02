@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CHEV-A Facturatie</title>
 
+    <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="CHEV-A">
     
+    <!-- jsPDF Bibliotheek voor PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
@@ -331,10 +333,10 @@ function updatePreview(){
     const ref = document.getElementById("factuurReferentie").value;
 
     let html = '';
-    if(logoData) html += `<img src="${logoData}" style="max-width:60px; display:block; margin-bottom:10px;">`;
+    if(logoData) html += `<img src="${logoData}" style="max-width:60px; display:block; margin-left:auto; margin-bottom:10px;">`;
     
     html += `<b>Factuurnummer:</b> ${nummer}<br><b>Datum:</b> ${formatteerDatum(document.getElementById("datum").value)}<br><br>`;
-    if(klant) html += `<b>Factureren aan:</b><br>${klant.naam}<br>${klant.adres}<br><br>`;
+    if(klant) html += `${klant.naam}<br>${klant.adres}<br><br>`;
     if(ref) html += `<b>Referentie:</b> ${ref}<br><br>`;
 
     html += `<table><tr><th>Omschrijving</th><th>Aantal</th><th>Prijs</th><th>Totaal</th></tr>`;
@@ -361,7 +363,8 @@ function maakPDF(nr, dRaw, k, regels, ref){
             finalHeight = maxHeight; finalWidth = (logoWidth / logoHeight) * maxHeight;
         }
         const imgType = logoData.indexOf("png") !== -1 ? "PNG" : "JPEG";
-        pdf.addImage(logoData, imgType, marginLeft, y, finalWidth, finalHeight);
+        // LOGO RECHTS: Positie berekend vanaf de rechterkant (marginRight - breedte)
+        pdf.addImage(logoData, imgType, marginRight - finalWidth, y, finalWidth, finalHeight);
     }
 
     pdf.setFontSize(22);
@@ -383,25 +386,18 @@ function maakPDF(nr, dRaw, k, regels, ref){
     pdf.text(`  ${document.getElementById("betaling").value}`, marginLeft + 80, y);
     
     y += 50;
-    pdf.setFont(undefined, 'bold');
-    pdf.text("Factureren aan (Klant):", marginLeft, y);
+    // KLANT: Label "Factureren aan" verwijderd
     pdf.setFont(undefined, 'normal');
-    pdf.text(k.naam, marginLeft, y + 14);
-    pdf.text(k.adres, marginLeft, y + 28);
-    pdf.text(`T.a.v.: ${k.contact}`, marginLeft, y + 42);
+    pdf.text(k.naam, marginLeft, y);
+    pdf.text(k.adres, marginLeft, y + 14);
+    pdf.text(`T.a.v.: ${k.contact}`, marginLeft, y + 28);
     
-    pdf.setFont(undefined, 'bold');
-    pdf.text("Van (Afzender):", 330, y);
-    pdf.setFont(undefined, 'normal');
-    pdf.text(bedrijf.naam || "", 330, y + 14);
-    pdf.text(bedrijf.adres || "", 330, y + 28);
-    pdf.text(`IBAN: ${bedrijf.iban || ""}`, 330, y + 42);
-    pdf.text(`BTW: ${bedrijf.btw || ""}`, 330, y + 56);
-    
-    y += 90;
+    // (Afzender staat hier niet meer bovenin, maar onderaan)
+
+    y += 80;
     if (ref) { pdf.text(`Referentie: ${ref}`, marginLeft, y); y += 20; }
 
-    // Omschrijvingsbalk (Kop): Donkerder grijs gemaakt
+    // Omschrijvingsbalk (Kop)
     pdf.setFillColor(220, 220, 220);
     pdf.rect(marginLeft, y, marginRight - marginLeft, 20, 'F');
     pdf.setFont(undefined, 'bold');
@@ -410,7 +406,6 @@ function maakPDF(nr, dRaw, k, regels, ref){
     pdf.text("Prijs", 460, y + 14, { align: "right" });
     pdf.text("Totaal", marginRight - 5, y + 14, { align: "right" });
     
-    // EXTRA AFSTAND: y met 35 verhoogd ipv 30 om ruimte te maken tussen kopbalk en artikelen
     y += 35;
     pdf.setFont(undefined, 'normal');
 
@@ -419,7 +414,6 @@ function maakPDF(nr, dRaw, k, regels, ref){
         const lines = pdf.splitTextToSize(r.o, 280);
         const rowHeight = (lines.length * 12) + 10;
         
-        // Artikelregels: Iets lichter grijs gemaakt (245)
         pdf.setFillColor(245, 245, 245);
         pdf.rect(marginLeft, y - 10, marginRight - marginLeft, rowHeight, 'F');
         
@@ -428,7 +422,7 @@ function maakPDF(nr, dRaw, k, regels, ref){
         pdf.text(`€ ${parseFloat(r.p).toFixed(2)}`, 460, y, { align: "right" });
         pdf.text(`€ ${totaal}`, marginRight - 5, y, { align: "right" });
         
-        y += rowHeight + 4; // Kleine marge tussen artikelen onderling
+        y += rowHeight + 4;
     });
 
     y += 20;
@@ -444,6 +438,17 @@ function maakPDF(nr, dRaw, k, regels, ref){
     pdf.setFont(undefined, 'bold');
     pdf.text("Totaalbedrag:", 460, y, { align: "right" });
     pdf.text(`€ ${document.getElementById("tot").innerText}`, marginRight - 5, y, { align: "right" });
+    
+    // MIJN GEGEVENS ONDERAAN: Netjes uitgelijnd aan de onderkant, zonder "Van (Afzender)" label
+    y += 60;
+    pdf.line(marginLeft, y, marginRight, y); // Een extra subtiele scheidingslijn
+    y += 20;
+    pdf.setFontSize(10);
+    pdf.setFont(undefined, 'bold');
+    pdf.text(bedrijf.naam || "", marginLeft, y);
+    pdf.setFont(undefined, 'normal');
+    pdf.text(bedrijf.adres || "", marginLeft, y + 14);
+    pdf.text(`IBAN: ${bedrijf.iban || ""}  |  BTW: ${bedrijf.btw || ""}`, marginLeft, y + 28);
     
     pdf.save(`Factuur-${nr}.pdf`);
 }
