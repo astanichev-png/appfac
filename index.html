@@ -331,7 +331,7 @@ function updatePreview(){
     const ref = document.getElementById("factuurReferentie").value;
 
     let html = `<div style="font-family:'Inter',sans-serif; font-size:24px; font-weight:800; color:#1c1c1e; margin-bottom:5px; letter-spacing:-1px;">CHEV-A</div>`;
-    html += `<div style="font-family:'Inter',sans-serif; font-size:18px; font-weight:800; color:#1c1c1e; margin-bottom:20px;">FACTUUR</div>`;
+    html += `<div style="font-family:'Inter',sans-serif; font-size:18px; font-weight:800; color:#1c1c1e; margin-bottom:25px;">FACTUUR</div>`;
     
     html += `<b>Factuurnummer:</b> ${nummer}<br><b>Datum:</b> ${formatteerDatum(document.getElementById("datum").value)}<br><br>`;
     if(klant) html += `${klant.naam}<br>${klant.adres}<br><br>`;
@@ -359,12 +359,12 @@ function maakPDF(nr, dRaw, k, regels, ref){
     pdf.setFontSize(24);
     pdf.setTextColor(28, 28, 30);
     pdf.text("CHEV-A", marginLeft, y);
-    y += 30; // Laat de y-as zakken voor het volgende element
+    y += 35; 
 
     // 2. "FACTUUR" titel strak en netjes ONDER het logo plaatsen
     pdf.setFontSize(20);
     pdf.text("FACTUUR", marginLeft, y);
-    y += 50; // Ruimte vrijmaken voor de rest van de documentdetails
+    y += 45; 
 
     pdf.setFontSize(10);
     pdf.setTextColor(0, 0, 0);
