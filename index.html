@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CHEV-A Facturatie</title>
 
-    <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="CHEV-A">
     
-    <!-- jsPDF Bibliotheek voor PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
@@ -363,7 +361,6 @@ function maakPDF(nr, dRaw, k, regels, ref){
             finalHeight = maxHeight; finalWidth = (logoWidth / logoHeight) * maxHeight;
         }
         const imgType = logoData.indexOf("png") !== -1 ? "PNG" : "JPEG";
-        // LOGO RECHTS: Positie berekend vanaf de rechterkant (marginRight - breedte)
         pdf.addImage(logoData, imgType, marginRight - finalWidth, y, finalWidth, finalHeight);
     }
 
@@ -386,18 +383,14 @@ function maakPDF(nr, dRaw, k, regels, ref){
     pdf.text(`  ${document.getElementById("betaling").value}`, marginLeft + 80, y);
     
     y += 50;
-    // KLANT: Label "Factureren aan" verwijderd
     pdf.setFont(undefined, 'normal');
     pdf.text(k.naam, marginLeft, y);
     pdf.text(k.adres, marginLeft, y + 14);
     pdf.text(`T.a.v.: ${k.contact}`, marginLeft, y + 28);
     
-    // (Afzender staat hier niet meer bovenin, maar onderaan)
-
     y += 80;
     if (ref) { pdf.text(`Referentie: ${ref}`, marginLeft, y); y += 20; }
 
-    // Omschrijvingsbalk (Kop)
     pdf.setFillColor(220, 220, 220);
     pdf.rect(marginLeft, y, marginRight - marginLeft, 20, 'F');
     pdf.setFont(undefined, 'bold');
@@ -439,9 +432,8 @@ function maakPDF(nr, dRaw, k, regels, ref){
     pdf.text("Totaalbedrag:", 460, y, { align: "right" });
     pdf.text(`€ ${document.getElementById("tot").innerText}`, marginRight - 5, y, { align: "right" });
     
-    // MIJN GEGEVENS ONDERAAN: Netjes uitgelijnd aan de onderkant, zonder "Van (Afzender)" label
     y += 60;
-    pdf.line(marginLeft, y, marginRight, y); // Een extra subtiele scheidingslijn
+    pdf.line(marginLeft, y, marginRight, y);
     y += 20;
     pdf.setFontSize(10);
     pdf.setFont(undefined, 'bold');
@@ -495,65 +487,10 @@ function exportUBL() {
         const prijs = v[2].value || 0;
         const regelTotaal = (parseFloat(aantal) * parseFloat(prijs)).toFixed(2);
 
-        regelsXml += `
-    <cac:InvoiceLine>
-        <cbc:ID>${index + 1}</cbc:ID>
-        <cbc:InvoicedQuantity unitCode="HUR">${aantal}</cbc:InvoicedQuantity>
-        <cbc:LineExtensionAmount currencyID="EUR">${regelTotaal}</cbc:LineExtensionAmount>
-        <cac:Item>
-            <cbc:Name>${omschrijving}</cbc:Name>
-            <cac:ClassifiedTaxCategory>
-                <cbc:ID>S</cbc:ID>
-                <cbc:Percent>21</cbc:Percent>
-                <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
-            </cac:ClassifiedTaxCategory>
-        </cac:Item>
-        <cac:Price>
-            <cbc:PriceAmount currencyID="EUR">${prijs}</cbc:PriceAmount>
-        </cac:Price>
-    </cac:InvoiceLine>`;
+        regelsXml += "<cac:InvoiceLine><cbc:ID>" + (index + 1) + "</cbc:ID><cbc:InvoicedQuantity unitCode=\"HUR\">" + aantal + "</cbc:InvoicedQuantity><cbc:LineExtensionAmount currencyID=\"EUR\">" + regelTotaal + "</cbc:LineExtensionAmount><cac:Item><cbc:Name>" + omschrijving + "</cbc:Name><cac:ClassifiedTaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory></cac:Item><cac:Price><cbc:PriceAmount currencyID=\"EUR\">" + prijs + "</cbc:PriceAmount></cac:Price></cac:InvoiceLine>";
     });
 
-    let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
-    <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:poacc:trns:invoice:3</cbc:CustomizationID>
-    <cbc:ID>${nummer}</cbc:ID>
-    <cbc:IssueDate>${datum}</cbc:IssueDate>
-    <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
-    <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
-    <cbc:BuyerReference>${ref}</cbc:BuyerReference>
-    <cac:AccountingSupplierParty>
-        <cac:Party>
-            <cac:PartyName><cbc:Name>${bedrijf.naam || "Uw Bedrijf"}</cbc:Name></cac:PartyName>
-            <cac:PostalAddress>
-                <cbc:StreetName>${bedrijf.adres || ""}</cbc:StreetName>
-                <cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:Country>
-            </cac:PostalAddress>
-            <cac:PartyTaxScheme>
-                <cbc:CompanyID>${bedrijf.btw || ""}</cbc:CompanyID>
-                <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>
-            </cac:PartyTaxScheme>
-        </cac:Party>
-    </cac:AccountingSupplierParty>
-    <cac:AccountingCustomerParty>
-        <cac:Party>
-            <cac:PartyName><cbc:Name>${k.naam}</cbc:Name></cac:PartyName>
-            <cac:PostalAddress>
-                <cbc:StreetName>${k.adres}</cbc:StreetName>
-                <cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:Country>
-            </cac:PostalAddress>
-        </cac:Party>
-    </cac:AccountingCustomerParty>
-    <cac:TaxTotal>
-        <cbc:TaxAmount currencyID="EUR">${btw}</cbc:TaxAmount>
-    </cac:TaxTotal>
-    <cac:LegalMonetaryTotal>
-        <cbc:LineExtensionAmount currencyID="EUR">${sub}</cbc:LineExtensionAmount>
-        <cbc:TaxExclusiveAmount currencyID="EUR">${sub}</cbc:TaxExclusiveAmount>
-        <cbc:TaxInclusiveAmount currencyID="EUR">${tot}</cbc:TaxInclusiveAmount>
-        <cbc:PayableAmount currencyID="EUR">${tot}</cbc:PayableAmount>
-    </cac:LegalMonetaryTotal>${regelsXml}
-</Invoice>`;
+    let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\" xmlns:cac=\"urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2\" xmlns:cbc=\"urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2\"><cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:poacc:trns:invoice:3</cbc:CustomizationID><cbc:ID>" + nummer + "</cbc:ID><cbc:IssueDate>" + datum + "</cbc:IssueDate><cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode><cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode><cbc:BuyerReference>" + ref + "</cbc:BuyerReference><cac:AccountingSupplierParty><cac:Party><cac:PartyName><cbc:Name>" + (bedrijf.naam || "Uw Bedrijf") + "</cbc:Name></cac:PartyName><cac:PostalAddress><cbc:StreetName>" + (bedrijf.adres || "") + "</cbc:StreetName><cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:Country></cac:PostalAddress><cac:PartyTaxScheme><cbc:CompanyID>" + (bedrijf.btw || "") + "</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty><cac:AccountingCustomerParty><cac:Party><cac:PartyName><cbc:Name>" + k.naam + "</cbc:Name></cac:PartyName><cac:PostalAddress><cbc:StreetName>" + k.adres + "</cbc:StreetName><cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:Country></cac:PostalAddress></cac:Party></cac:AccountingCustomerParty><cac:TaxTotal><cbc:TaxAmount currencyID=\"EUR\">" + btw + "</cbc:TaxAmount></cac:TaxTotal><cac:LegalMonetaryTotal><cbc:LineExtensionAmount currencyID=\"EUR\">" + sub + "</cbc:LineExtensionAmount><cbc:TaxExclusiveAmount currencyID=\"EUR\">" + sub + "</cbc:TaxExclusiveAmount><cbc:TaxInclusiveAmount currencyID=\"EUR\">" + tot + "</cbc:TaxInclusiveAmount><cbc:PayableAmount currencyID=\"EUR\">" + tot + "</cbc:PayableAmount></cac:LegalMonetaryTotal>" + regelsXml + "</Invoice>";
 
     const blob = new Blob([xml], {type: "text/xml"});
     const a = document.createElement("a");
