@@ -9,11 +9,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="CHEV-A">
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0;
             padding: 20px;
             background-color: #f2f2f7;
@@ -21,6 +25,7 @@
             -webkit-tap-highlight-color: transparent;
         }
         input, select, button {
+            font-family: inherit;
             font-size: 16px;
             padding: 10px;
             margin: 5px 0;
@@ -64,11 +69,23 @@
         #importInput { display: none; }
         .btn-backup { background-color: #ff9500; }
         .btn-import { background-color: #5ac8fa; color: #1c1c1e; }
+
+        /* In-code gegenereerde SVG Logo Styling */
+        .logo-container {
+            display: inline-block;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
 
 <div class="card">
+    <div class="logo-container">
+        <svg width="150" height="40" viewBox="0 0 150 40" xmlns="http://www.w3.org/2000/svg">
+            <text x="0" y="30" font-family="'Inter', sans-serif" font-size="28" font-weight="800" fill="#1c1c1e" letter-spacing="-1">CHEV-A</text>
+        </svg>
+    </div>
+
     <h2>CHEV-A Facturatiesysteem</h2>
     <p>Factuurnummer: <span id="factuurNr" style="font-weight:bold;">-</span></p>
     
@@ -81,8 +98,7 @@
             <input id="bedrijfBTW" placeholder="BTW-nummer">
         </div>
         <div style="flex: 1; min-width: 150px;">
-            <label>Logo & Klant:</label><br>
-            <input type="file" id="logoInput" accept="image/*"><br>
+            <label>Klant & Datum:</label><br>
             <select id="klantSelect" onchange="updatePreview()"></select><br>
             <input type="date" id="datum" onchange="updatePreview()">
         </div>
@@ -176,7 +192,6 @@
 <script>
 let klanten = JSON.parse(localStorage.getItem("klanten") || "[]");
 let facturen = JSON.parse(localStorage.getItem("facturen") || "[]");
-let logoData = null; let logoWidth = 0; let logoHeight = 0;
 let nummer = parseInt(localStorage.getItem("factuurnr")) || 6374;
 let bedrijf = JSON.parse(localStorage.getItem("bedrijf") || "{}");
 
@@ -250,20 +265,6 @@ function importDatabase(event) {
     reader.readAsText(file);
 }
 
-document.getElementById("logoInput").addEventListener("change", function(){
-    const file = this.files[0];
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-            logoData = e.target.result; logoWidth = img.width; logoHeight = img.height;
-            updatePreview();
-        };
-        img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-});
-
 function formatteerDatum(datumString) {
     if (!datumString) return "";
     const d = new Date(datumString);
@@ -330,8 +331,8 @@ function updatePreview(){
     const tot = parseFloat(document.getElementById("tot").innerText);
     const ref = document.getElementById("factuurReferentie").value;
 
-    let html = '';
-    if(logoData) html += `<img src="${logoData}" style="max-width:125px; display:block; margin-bottom:10px;">`;
+    // Live preview met het nieuwe Inter Bold tekstlogo bovenin
+    let html = `<div style="font-family:'Inter',sans-serif; font-size:24px; font-weight:800; color:#1c1c1e; margin-bottom:15px; letter-spacing:-1px;">CHEV-A</div>`;
     
     html += `<b>Factuurnummer:</b> ${nummer}<br><b>Datum:</b> ${formatteerDatum(document.getElementById("datum").value)}<br><br>`;
     if(klant) html += `${klant.naam}<br>${klant.adres}<br><br>`;
@@ -354,26 +355,19 @@ function maakPDF(nr, dRaw, k, regels, ref){
     const marginRight = 555;
     let y = 50;
 
-    if (logoData) {
-        // Logo vergroot naar 125pt maximale breedte
-        const maxWidth = 125; const maxHeight = 80;
-        let finalWidth = maxWidth; let finalHeight = (logoHeight / logoWidth) * maxWidth;
-        if (finalHeight > maxHeight) {
-            finalHeight = maxHeight; finalWidth = (logoWidth / logoHeight) * maxHeight;
-        }
-        const imgType = logoData.indexOf("png") !== -1 ? "PNG" : "JPEG";
-        // LOGO LINKSBOVEN: Geplaatst op marginLeft (40) en y (50)
-        pdf.addImage(logoData, imgType, marginLeft, y, finalWidth, finalHeight);
-        y += finalHeight + 20; // y-positie dynamisch opschuiven op basis van de logo hoogte
-    } else {
-        y += 30;
-    }
+    // LOGO DIRECT IN DE PDF TEKENEN (Inter Bold, 125pt breedte gesimuleerd met fontSize 24)
+    pdf.setFont("Helvetica", "bold"); // jsPDF standaard fallback voor bold sans-serif
+    pdf.setFontSize(24);
+    pdf.setTextColor(28, 28, 30); // #1c1c1e
+    pdf.text("CHEV-A", marginLeft, y + 20);
+    y += 60; // Ruimte vrijmaken onder het getekende logo
 
     pdf.setFontSize(22);
     pdf.text("FACTUUR", 300, 75, { align: "center" });
     
-    if (y < 130) y = 130; // Zorg voor voldoende basis-afstand na de header
+    if (y < 130) y = 130;
     pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 0);
     
     pdf.setFont(undefined, 'bold');
     pdf.text(`Factuurnummer:`, marginLeft, y);
