@@ -331,7 +331,7 @@ function updatePreview(){
     const ref = document.getElementById("factuurReferentie").value;
 
     let html = '';
-    if(logoData) html += `<img src="${logoData}" style="max-width:60px; display:block; margin-left:auto; margin-bottom:10px;">`;
+    if(logoData) html += `<img src="${logoData}" style="max-width:125px; display:block; margin-bottom:10px;">`;
     
     html += `<b>Factuurnummer:</b> ${nummer}<br><b>Datum:</b> ${formatteerDatum(document.getElementById("datum").value)}<br><br>`;
     if(klant) html += `${klant.naam}<br>${klant.adres}<br><br>`;
@@ -355,18 +355,24 @@ function maakPDF(nr, dRaw, k, regels, ref){
     let y = 50;
 
     if (logoData) {
-        const maxWidth = 60; const maxHeight = 30;
+        // Logo vergroot naar 125pt maximale breedte
+        const maxWidth = 125; const maxHeight = 80;
         let finalWidth = maxWidth; let finalHeight = (logoHeight / logoWidth) * maxWidth;
         if (finalHeight > maxHeight) {
             finalHeight = maxHeight; finalWidth = (logoWidth / logoHeight) * maxHeight;
         }
         const imgType = logoData.indexOf("png") !== -1 ? "PNG" : "JPEG";
-        pdf.addImage(logoData, imgType, marginRight - finalWidth, y, finalWidth, finalHeight);
+        // LOGO LINKSBOVEN: Geplaatst op marginLeft (40) en y (50)
+        pdf.addImage(logoData, imgType, marginLeft, y, finalWidth, finalHeight);
+        y += finalHeight + 20; // y-positie dynamisch opschuiven op basis van de logo hoogte
+    } else {
+        y += 30;
     }
 
     pdf.setFontSize(22);
-    pdf.text("FACTUUR", 300, y + 25, { align: "center" });
-    y += 80;
+    pdf.text("FACTUUR", 300, 75, { align: "center" });
+    
+    if (y < 130) y = 130; // Zorg voor voldoende basis-afstand na de header
     pdf.setFontSize(10);
     
     pdf.setFont(undefined, 'bold');
@@ -387,7 +393,7 @@ function maakPDF(nr, dRaw, k, regels, ref){
     pdf.text(k.naam, marginLeft, y);
     pdf.text(k.adres, marginLeft, y + 14);
     pdf.text(`T.a.v.: ${k.contact}`, marginLeft, y + 28);
-    
+
     y += 80;
     if (ref) { pdf.text(`Referentie: ${ref}`, marginLeft, y); y += 20; }
 
