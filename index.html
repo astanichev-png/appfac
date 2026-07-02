@@ -331,7 +331,7 @@ function updatePreview(){
     const ref = document.getElementById("factuurReferentie").value;
 
     let html = `<div style="font-family:'Inter',sans-serif; font-size:24px; font-weight:800; color:#1c1c1e; margin-bottom:5px; letter-spacing:-1px;">CHEV-A</div>`;
-    html += `<div style="font-family:'Inter',sans-serif; font-size:18px; font-weight:800; color:#1c1c1e; margin-bottom:25px;">FACTUUR</div>`;
+    html += `<div style="font-family:'Inter',sans-serif; font-size:18px; font-weight:800; color:#1c1c1e; margin-bottom:20px;">FACTUUR</div>`;
     
     html += `<b>Factuurnummer:</b> ${nummer}<br><b>Datum:</b> ${formatteerDatum(document.getElementById("datum").value)}<br><br>`;
     if(klant) html += `${klant.naam}<br>${klant.adres}<br><br>`;
@@ -359,8 +359,201 @@ function maakPDF(nr, dRaw, k, regels, ref){
     pdf.setFontSize(24);
     pdf.setTextColor(28, 28, 30);
     pdf.text("CHEV-A", marginLeft, y);
-    y += 35; 
+    y += 30; // Laat de y-as zakken voor het volgende element
 
     // 2. "FACTUUR" titel strak en netjes ONDER het logo plaatsen
     pdf.setFontSize(20);
-    pdf.text
+    pdf.text("FACTUUR", marginLeft, y);
+    y += 50; // Ruimte vrijmaken voor de rest van de documentdetails
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(0, 0, 0);
+    
+    pdf.setFont(undefined, 'bold');
+    pdf.text(`Factuurnummer:`, marginLeft, y);
+    pdf.text(`  ${nr}`, marginLeft + 80, y);
+    y += 15;
+    pdf.text(`Datum:`, marginLeft, y);
+    pdf.setFont(undefined, 'normal');
+    pdf.text(`  ${formatteerDatum(dRaw)}`, marginLeft + 80, y);
+    y += 15;
+    pdf.setFont(undefined, 'bold');
+    pdf.text(`Vervaldatum:`, marginLeft, y);
+    pdf.setFont(undefined, 'normal');
+    pdf.text(`  ${document.getElementById("betaling").value}`, marginLeft + 80, y);
+    
+    y += 50;
+    pdf.setFont(undefined, 'normal');
+    pdf.text(k.naam, marginLeft, y);
+    pdf.text(k.adres, marginLeft, y + 14);
+    pdf.text(`T.a.v.: ${k.contact}`, marginLeft, y + 28);
+
+    y += 80;
+    if (ref) { pdf.text(`Referentie: ${ref}`, marginLeft, y); y += 20; }
+
+    pdf.setFillColor(220, 220, 220);
+    pdf.rect(marginLeft, y, marginRight - marginLeft, 20, 'F');
+    pdf.setFont(undefined, 'bold');
+    pdf.text("Omschrijving", marginLeft + 5, y + 14);
+    pdf.text("Aantal", 380, y + 14, { align: "right" });
+    pdf.text("Prijs", 460, y + 14, { align: "right" });
+    pdf.text("Totaal", marginRight - 5, y + 14, { align: "right" });
+    
+    y += 35;
+    pdf.setFont(undefined, 'normal');
+
+    regels.forEach((r) => {
+        const totaal = (parseFloat(r.a) * parseFloat(r.p)).toFixed(2);
+        const lines = pdf.splitTextToSize(r.o, 280);
+        const rowHeight = (lines.length * 12) + 10;
+        
+        pdf.setFillColor(245, 245, 245);
+        pdf.rect(marginLeft, y - 10, marginRight - marginLeft, rowHeight, 'F');
+        
+        pdf.text(lines, marginLeft + 5, y);
+        pdf.text(String(r.a), 380, y, { align: "right" });
+        pdf.text(`€ ${parseFloat(r.p).toFixed(2)}`, 460, y, { align: "right" });
+        pdf.text(`€ ${totaal}`, marginRight - 5, y, { align: "right" });
+        
+        y += rowHeight + 4;
+    });
+
+    y += 20;
+    pdf.line(350, y, marginRight, y);
+    y += 20;
+    pdf.text("Subtotaal:", 460, y, { align: "right" });
+    pdf.text(`€ ${document.getElementById("sub").innerText}`, marginRight - 5, y, { align: "right" });
+    y += 15;
+    pdf.text("BTW 21%:", 460, y, { align: "right" });
+    pdf.text(`€ ${document.getElementById("btw").innerText}`, marginRight - 5, y, { align: "right" });
+    y += 20;
+    pdf.setFontSize(12);
+    pdf.setFont(undefined, 'bold');
+    pdf.text("Totaalbedrag:", 460, y, { align: "right" });
+    pdf.text(`€ ${document.getElementById("tot").innerText}`, marginRight - 5, y, { align: "right" });
+    
+    y += 60;
+    pdf.line(marginLeft, y, marginRight, y);
+    y += 20;
+    pdf.setFontSize(10);
+    pdf.setFont(undefined, 'bold');
+    pdf.text(bedrijf.naam || "", marginLeft, y);
+    pdf.setFont(undefined, 'normal');
+    pdf.text(bedrijf.adres || "", marginLeft, y + 14);
+    pdf.text(`IBAN: ${bedrijf.iban || ""}  |  BTW: ${bedrijf.btw || ""}`, marginLeft, y + 28);
+    
+    pdf.save(`Factuur-${nr}.pdf`);
+}
+
+function exportFactuur(){
+    const idx = document.getElementById("klantSelect").value;
+    if(idx==="") return alert("Selecteer klant");
+    const klant = klanten[idx];
+    const datum = document.getElementById("datum").value;
+    const ref = document.getElementById("factuurReferentie").value;
+    const regels = [...document.querySelectorAll("#regels tbody tr")].map(r=>{
+        const v = r.querySelectorAll("input"); return {o:v[0].value, a:v[1].value, p:v[2].value};
+    });
+
+    maakPDF(nummer, datum, klant, regels, ref);
+    
+    const fData = { nr: nummer, datumRaw: datum, datumNice: formatteerDatum(datum), klant, regels, tot: document.getElementById("tot").innerText, sub: document.getElementById("sub").innerText, referentie: ref, termijn: document.getElementById("betaling").value };
+    facturen.push(fData); 
+    nummer++; 
+    localStorage.setItem("factuurnr", nummer);
+    localStorage.setItem("facturen", JSON.stringify(facturen));
+    init();
+
+    setTimeout(() => {
+        alert("📊 Factuur opgeslagen in historie! Vergeet niet om af en toe op 'Backup Downloaden' te klikken om je statistieken veilig buiten de browser te bewaren.");
+    }, 500);
+}
+
+function exportUBL() {
+    const idx = document.getElementById("klantSelect").value;
+    if(idx==="") return alert("Selecteer eerst een klant");
+    const k = klanten[idx];
+    const datum = document.getElementById("datum").value;
+    const ref = document.getElementById("factuurReferentie").value || "Geen referentie";
+    const sub = document.getElementById("sub").innerText;
+    const btw = document.getElementById("btw").innerText;
+    const tot = document.getElementById("tot").innerText;
+
+    let regelsXml = "";
+    document.querySelectorAll("#regels tbody tr").forEach((row, index) => {
+        const v = row.querySelectorAll("input");
+        const omschrijving = v[0].value || "Dienst";
+        const aantal = v[1].value || 0;
+        const prijs = v[2].value || 0;
+        const regelTotaal = (parseFloat(aantal) * parseFloat(prijs)).toFixed(2);
+
+        regelsXml += "<cac:InvoiceLine><cbc:ID>" + (index + 1) + "</cbc:ID><cbc:InvoicedQuantity unitCode=\"HUR\">" + aantal + "</cbc:InvoicedQuantity><cbc:LineExtensionAmount currencyID=\"EUR\">" + regelTotaal + "</cbc:LineExtensionAmount><cac:Item><cbc:Name>" + omschrijving + "</cbc:Name><cac:ClassifiedTaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>21</cbc:Percent><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory></cac:Item><cac:Price><cbc:PriceAmount currencyID=\"EUR\">" + prijs + "</cbc:PriceAmount></cac:Price></cac:InvoiceLine>";
+    });
+
+    let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\" xmlns:cac=\"urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2\" xmlns:cbc=\"urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2\"><cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:poacc:trns:invoice:3</cbc:CustomizationID><cbc:ID>" + nummer + "</cbc:ID><cbc:IssueDate>" + datum + "</cbc:IssueDate><cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode><cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode><cbc:BuyerReference>" + ref + "</cbc:BuyerReference><cac:AccountingSupplierParty><cac:Party><cac:PartyName><cbc:Name>" + (bedrijf.naam || "Uw Bedrijf") + "</cbc:Name></cac:PartyName><cac:PostalAddress><cbc:StreetName>" + (bedrijf.adres || "") + "</cbc:StreetName><cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:Country></cac:PostalAddress><cac:PartyTaxScheme><cbc:CompanyID>" + (bedrijf.btw || "") + "</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty><cac:AccountingCustomerParty><cac:Party><cac:PartyName><cbc:Name>" + k.naam + "</cbc:Name></cac:PartyName><cac:PostalAddress><cbc:StreetName>" + k.adres + "</cbc:StreetName><cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:Country></cac:PostalAddress></cac:Party></cac:AccountingCustomerParty><cac:TaxTotal><cbc:TaxAmount currencyID=\"EUR\">" + btw + "</cbc:TaxAmount></cac:TaxTotal><cac:LegalMonetaryTotal><cbc:LineExtensionAmount currencyID=\"EUR\">" + sub + "</cbc:LineExtensionAmount><cbc:TaxExclusiveAmount currencyID=\"EUR\">" + sub + "</cbc:TaxExclusiveAmount><cbc:TaxInclusiveAmount currencyID=\"EUR\">" + tot + "</cbc:TaxInclusiveAmount><cbc:PayableAmount currencyID=\"EUR\">" + tot + "</cbc:PayableAmount></cac:LegalMonetaryTotal>" + regelsXml + "</Invoice>";
+
+    const blob = new Blob([xml], {type: "text/xml"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `Factuur_${nummer}_UBL.xml`;
+    a.click();
+}
+
+function updateHistorieLijst() {
+    const tbody = document.querySelector("#historieTabel tbody");
+    tbody.innerHTML = "";
+    facturen.forEach((f, i) => {
+        const r = tbody.insertRow();
+        r.innerHTML = `<td>${f.nr}</td><td>${f.datumNice}</td><td>${f.klant.naam}</td><td>€${f.tot}</td>
+            <td><button class="btn-reload" onclick="laadFactuurInEditor(${i})">🔄</button>
+                <button class="delete-icon" onclick="verwijderFactuur(${i})">🗑️</button></td>`;
+    });
+}
+
+function laadFactuurInEditor(index){
+    const f = facturen[index];
+    if(!confirm("Factuur herladen?")) return;
+    nummer = f.nr;
+    document.getElementById("factuurNr").innerText = nummer;
+    document.getElementById("datum").value = f.datumRaw;
+    document.getElementById("factuurReferentie").value = f.referentie || "";
+    const kIdx = klanten.findIndex(k => k.naam === f.klant.naam);
+    document.getElementById("klantSelect").value = kIdx !== -1 ? kIdx : "";
+    const tbody = document.querySelector("#regels tbody");
+    tbody.innerHTML = "";
+    f.regels.forEach(r => regelToevoegen(r.o, r.a, r.p));
+    window.scrollTo(0,0);
+}
+
+function verwijderFactuur(index) {
+    if(confirm("Verwijderen uit historie? Dit beïnvloedt je statistiek.")) {
+        facturen.splice(index, 1);
+        localStorage.setItem("facturen", JSON.stringify(facturen));
+        init();
+    }
+}
+
+function saveBedrijf(){
+    bedrijf = { naam: document.getElementById("bedrijfNaam").value, adres: document.getElementById("bedrijfAdres").value, iban: document.getElementById("bedrijfIBAN").value, btw: document.getElementById("bedrijfBTW").value };
+    localStorage.setItem("bedrijf", JSON.stringify(bedrijf));
+    updatePreview();
+}
+["bedrijfNaam","bedrijfAdres","bedrijfIBAN","bedrijfBTW"].forEach(id => document.getElementById(id).addEventListener("input", saveBedrijf));
+
+function exportCSV(){
+    let csv = 'Factuurnr;Datum;Klant;Totaal\n';
+    facturen.forEach(f=> csv += `${f.nr};${f.datumNice};"${f.klant.naam}";${f.tot}\n`);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+    a.download = 'CHEV-A_Export.csv'; a.click();
+}
+
+function resetFactuurNr(){
+    const nieuwNr = prompt("Nieuw nummer?", "6375");
+    if(nieuwNr) { nummer = parseInt(nieuwNr); document.getElementById("factuurNr").innerText = nummer; localStorage.setItem("factuurnr", nummer); }
+}
+
+init();
+</script>
+</body>
+</html>
