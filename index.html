@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CHEV-A Facturatie</title>
 
-    <!-- iOS PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="CHEV-A">
     
-    <!-- jsPDF Bibliotheek voor PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
@@ -357,7 +355,6 @@ function maakPDF(nr, dRaw, k, regels, ref){
     let y = 50;
 
     if (logoData) {
-        // Logo 3 keer zo klein gemaakt (max-width van 180 naar 60pt)
         const maxWidth = 60; const maxHeight = 30;
         let finalWidth = maxWidth; let finalHeight = (logoHeight / logoWidth) * maxWidth;
         if (finalHeight > maxHeight) {
@@ -386,7 +383,6 @@ function maakPDF(nr, dRaw, k, regels, ref){
     pdf.text(`  ${document.getElementById("betaling").value}`, marginLeft + 80, y);
     
     y += 50;
-    // POSITIES GEWISSELD: Klant staat nu Links, Mijn Gegevens staan nu Rechts
     pdf.setFont(undefined, 'bold');
     pdf.text("Factureren aan (Klant):", marginLeft, y);
     pdf.setFont(undefined, 'normal');
@@ -405,35 +401,34 @@ function maakPDF(nr, dRaw, k, regels, ref){
     y += 90;
     if (ref) { pdf.text(`Referentie: ${ref}`, marginLeft, y); y += 20; }
 
-    // Kopbalk tabel
-    pdf.setFillColor(240, 240, 240);
+    // Omschrijvingsbalk (Kop): Donkerder grijs gemaakt
+    pdf.setFillColor(220, 220, 220);
     pdf.rect(marginLeft, y, marginRight - marginLeft, 20, 'F');
     pdf.setFont(undefined, 'bold');
     pdf.text("Omschrijving", marginLeft + 5, y + 14);
     pdf.text("Aantal", 380, y + 14, { align: "right" });
     pdf.text("Prijs", 460, y + 14, { align: "right" });
     pdf.text("Totaal", marginRight - 5, y + 14, { align: "right" });
-    y += 30;
+    
+    // EXTRA AFSTAND: y met 35 verhoogd ipv 30 om ruimte te maken tussen kopbalk en artikelen
+    y += 35;
     pdf.setFont(undefined, 'normal');
 
     regels.forEach((r) => {
         const totaal = (parseFloat(r.a) * parseFloat(r.p)).toFixed(2);
         const lines = pdf.splitTextToSize(r.o, 280);
-        
-        // Bereken de benodigde rijhoogte
         const rowHeight = (lines.length * 12) + 10;
         
-        // LICHTGRIJZE ACHTERGROND VOOR DE ARTIKELREGEL
-        pdf.setFillColor(250, 250, 250);
+        // Artikelregels: Iets lichter grijs gemaakt (245)
+        pdf.setFillColor(245, 245, 245);
         pdf.rect(marginLeft, y - 10, marginRight - marginLeft, rowHeight, 'F');
         
-        // Tekst drukken bovenop de grijze balk
         pdf.text(lines, marginLeft + 5, y);
         pdf.text(String(r.a), 380, y, { align: "right" });
         pdf.text(`€ ${parseFloat(r.p).toFixed(2)}`, 460, y, { align: "right" });
         pdf.text(`€ ${totaal}`, marginRight - 5, y, { align: "right" });
         
-        y += rowHeight;
+        y += rowHeight + 4; // Kleine marge tussen artikelen onderling
     });
 
     y += 20;
