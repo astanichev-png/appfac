@@ -283,11 +283,11 @@ let klanten = JSON.parse(localStorage.getItem("klanten") || "[]");
 let facturen = JSON.parse(localStorage.getItem("facturen") || "[]");
 let nummer = parseInt(localStorage.getItem("factuurnr")) || 6374;
 let bedrijf = JSON.parse(localStorage.getItem("bedrijf") || "{}");
+let isEditing = false;
 
 const $ = id => document.getElementById(id);
 
 function init() {
-    // Dropdown vullen
     $("klantSelect").innerHTML = `<option value="">Kies klant</option>` +
         klanten.map((k, i) => `<option value="${i}">${k.naam}</option>`).join("");
     
@@ -297,7 +297,6 @@ function init() {
         $("datum").value = new Date().toISOString().split('T')[0];
     }
     
-    // Bedrijfsdata invullen
     $("bedrijfNaam").value = bedrijf.naam || "";
     $("bedrijfAdres").value = bedrijf.adres || "";
     $("bedrijfIBAN").value = bedrijf.iban || "";
@@ -307,18 +306,15 @@ function init() {
 }
 
 function setupEventListeners() {
-    // Bedrijfsgegevens auto-save
     ["bedrijfNaam", "bedrijfAdres", "bedrijfIBAN", "bedrijfBTW"].forEach(id => {
         $(id).addEventListener("input", saveBedrijf);
     });
 
-    // Factuur updates triggers
     $("klantSelect").addEventListener("change", updatePreview);
     $("datum").addEventListener("change", updatePreview);
     $("betaling").addEventListener("change", updatePreview);
     $("factuurReferentie").addEventListener("input", updatePreview);
 
-    // Knoppen click handlers
     $("btnRegelToevoegen").addEventListener("click", () => regelToevoegen());
     $("btnKlantToevoegen").addEventListener("click", klantToevoegen);
     $("btnExportPDF").addEventListener("click", exportFactuur);
@@ -350,10 +346,12 @@ function updateStatistieken() {
     const maanden = {};
     
     facturen.forEach(f => {
-        let bedrag = parseFloat(f.tot.replace(',', '.'));
-        totaal += bedrag;
-        let mKey = f.datumRaw.substring(0, 7);
-        maanden[mKey] = (maanden[mKey] || 0) + bedrag;
+        let bedrag = parseFloat(String(f.tot).replace(',', '.'));
+        if (!isNaN(bedrag)) {
+            totaal += bedrag;
+            let mKey = f.datumRaw ? f.datumRaw.substring(0, 7) : "Onbekend";
+            maanden[mKey] = (maanden[mKey] || 0) + bedrag;
+        }
     });
 
     $("jaarOmzet").innerText = `€ ${totaal.toFixed(2)}`;
@@ -369,6 +367,7 @@ function updateStatistieken() {
 function formatteerDatum(datumString) {
     if (!datumString) return "";
     const d = new Date(datumString);
+    if (isNaN(d.getTime())) return datumString;
     return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
 }
 
@@ -386,7 +385,6 @@ function klantToevoegen() {
     $("kAdres").value = "";
     $("kContact").value = "";
     
-    // Refresh dropdown en lijst
     $("klantSelect").innerHTML = `<option value="">Kies klant</option>` +
         klanten.map((k, i) => `<option value="${i}">${k.naam}</option>`).join("");
     updateKlantenLijst();
@@ -481,10 +479,10 @@ function updatePreview() {
     document.querySelectorAll("#regelsTabel tbody tr").forEach(row => {
         const inputs = row.querySelectorAll("input");
         const o = inputs[0].value;
-        const a = inputs[1].value;
-        const p = inputs[2].value;
-        const t = (parseFloat(a) * parseFloat(p)).toFixed(2);
-        html += `<tr><td>${o}</td><td>${a}</td><td>€ ${p}</td><td>€ ${t}</td></tr>`;
+        const a = parseFloat(inputs[1].value) || 0;
+        const p = parseFloat(inputs[2].value) || 0;
+        const t = (a * p).toFixed(2);
+        html += `<tr><td>${o}</td><td>${a}</td><td>€ ${p.toFixed(2)}</td><td>€ ${t}</td></tr>`;
     });
     
     html += `</tbody></table><br><div style="text-align:right;"><b>Totaal: € ${tot.toFixed(2)}</b></div>`;
@@ -499,7 +497,6 @@ function maakPDF(nr, dRaw, k, regels, ref) {
     const pageHeight = pdf.internal.pageSize.height;
     let y = 50;
 
-    // Koptekst opstellen
     pdf.setFont("Helvetica", "bold");
     pdf.setFontSize(24);
     pdf.setTextColor(28, 28, 30);
@@ -526,14 +523,13 @@ function maakPDF(nr, dRaw, k, regels, ref) {
     pdf.text(`  ${$("betaling").value}`, marginLeft + 80, y);
     
     y += 50;
-    pdf.text(k.naam, marginLeft, y);
-    pdf.text(k.adres, marginLeft, y + 14);
-    pdf.text(`T.a.v.: ${k.contact}`, marginLeft, y + 28);
+    pdf.text(k.naam || "", marginLeft, y);
+    pdf.text(k.adres || "", marginLeft, y + 14);
+    pdf.text(`T.a.v.: ${k.contact || ""}`, marginLeft, y + 28);
 
     y += 80;
     if (ref) { pdf.text(`Referentie: ${ref}`, marginLeft, y); y += 20; }
 
-    // Functie voor tekenen van de tabelkop op elke gewenste pagina
     function tekenTabelKop(posY) {
         pdf.setFillColor(220, 220, 220);
         pdf.rect(marginLeft, posY, marginRight - marginLeft, 20, 'F');
@@ -550,10 +546,9 @@ function maakPDF(nr, dRaw, k, regels, ref) {
 
     regels.forEach((r) => {
         const totaal = (parseFloat(r.a) * parseFloat(r.p)).toFixed(2);
-        const lines = pdf.splitTextToSize(r.o, 280);
+        const lines = pdf.splitTextToSize(r.o || "", 280);
         const rowHeight = (lines.length * 12) + 10;
 
-        // Controleer of de regel op de huidige pagina past (laat 120pt marge onderaan voor totalen)
         if (y + rowHeight > pageHeight - 120) {
             pdf.addPage();
             y = 50;
@@ -573,7 +568,6 @@ function maakPDF(nr, dRaw, k, regels, ref) {
         y += rowHeight + 4;
     });
 
-    // Controleer of de totalen nog op dezelfde pagina passen
     if (y + 100 > pageHeight - 60) {
         pdf.addPage();
         y = 50;
@@ -593,7 +587,6 @@ function maakPDF(nr, dRaw, k, regels, ref) {
     pdf.text("Totaalbedrag:", 460, y, { align: "right" });
     pdf.text(`€ ${$("tot").innerText}`, marginRight - 5, y, { align: "right" });
     
-    // Voettekst plaatsen
     y += 60;
     if (y + 50 > pageHeight) {
         pdf.addPage();
@@ -638,15 +631,20 @@ function exportFactuur() {
         termijn: $("betaling").value
     };
 
-    facturen.push(fData); 
-    nummer++; 
-    localStorage.setItem("factuurnr", nummer);
+    const bestaandeIndex = facturen.findIndex(f => f.nr === nummer);
+    if (bestaandeIndex !== -1) {
+        facturen[bestaandeIndex] = fData;
+    } else {
+        facturen.push(fData); 
+        nummer++; 
+        localStorage.setItem("factuurnr", nummer);
+    }
+
     localStorage.setItem("facturen", JSON.stringify(facturen));
-    
     init();
 
     setTimeout(() => {
-        alert("📊 Factuur opgeslagen in historie! Vergeet niet om af en toe op 'Backup Downloaden' te klikken om je statistieken veilig buiten de browser te bewaren.");
+        alert("📊 Factuur opgeslagen in historie!");
     }, 500);
 }
 
@@ -677,7 +675,7 @@ function exportUBL() {
 <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:poacc:trns:invoice:3</cbc:CustomizationID>
 <cbc:ID>${nummer}</cbc:ID><cbc:IssueDate>${datum}</cbc:IssueDate><cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode><cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode><cbc:BuyerReference>${ref}</cbc:BuyerReference>
 <cac:AccountingSupplierParty><cac:Party><cac:PartyName><cbc:Name>${bedrijf.naam || "Uw Bedrijf"}</cbc:Name></cac:PartyName><cac:PostalAddress><cbc:StreetName>${bedrijf.adres || ""}</cbc:StreetName><cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:PostalAddress><cac:PartyTaxScheme><cbc:CompanyID>${bedrijf.btw || ""}</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty>
-<cac:AccountingCustomerParty><cac:Party><cac:PartyName><cbc:Name>${k.naam}</cbc:Name></cac:PartyName><cac:PostalAddress><cbc:StreetName>${k.adres}</cbc:StreetName><cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:Country></cac:PostalAddress></cac:Party></cac:AccountingCustomerParty>
+<cac:AccountingCustomerParty><cac:Party><cac:PartyName><cbc:Name>${k.naam}</cbc:Name></cac:PartyName><cac:PostalAddress><cbc:StreetName>${k.adres}</cbc:StreetName><cac:Country><cbc:IdentificationCode>NL</cbc:IdentificationCode></cac:PostalAddress></cac:Party></cac:AccountingCustomerParty>
 <cac:TaxTotal><cbc:TaxAmount currencyID="EUR">${btw}</cbc:TaxAmount></cac:TaxTotal>
 <cac:LegalMonetaryTotal><cbc:LineExtensionAmount currencyID="EUR">${sub}</cbc:LineExtensionAmount><cbc:TaxExclusiveAmount currencyID="EUR">${sub}</cbc:TaxExclusiveAmount><cbc:TaxInclusiveAmount currencyID="EUR">${tot}</cbc:TaxInclusiveAmount><cbc:PayableAmount currencyID="EUR">${tot}</cbc:PayableAmount></cac:LegalMonetaryTotal>${regelsXml}</Invoice>`;
 
@@ -697,7 +695,7 @@ function updateHistorieLijst() {
         row.innerHTML = `
             <td>${f.nr}</td>
             <td>${f.datumNice}</td>
-            <td>${f.klant.naam}</td>
+            <td>${f.klant ? f.klant.naam : '-'}</td>
             <td>€ ${f.tot}</td>
             <td>
                 <button type="button" class="btnLoadFactuur" data-index="${i}">🔄</button>
@@ -716,12 +714,13 @@ function updateHistorieLijst() {
 
 function laadFactuurInEditor(index) {
     const f = facturen[index];
-    if (!confirm("Factuur herladen?")) return;
+    if (!confirm("Factuur herladen in editor?")) return;
 
     nummer = f.nr;
     $("factuurNr").innerText = nummer;
     $("datum").value = f.datumRaw;
     $("factuurReferentie").value = f.referentie || "";
+    if (f.termijn) $("betaling").value = f.termijn;
     
     const kIdx = klanten.findIndex(k => k.naam === f.klant.naam);
     $("klantSelect").value = kIdx !== -1 ? kIdx : "";
@@ -743,7 +742,7 @@ function verwijderFactuur(index) {
 
 function exportDatabase() {
     const data = { klanten, facturen, bedrijf, factuurnr: nummer };
-    const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `CHEV-A_Backup_${new Date().toISOString().split('T')[0]}.json`;
@@ -778,7 +777,6 @@ function importDatabase(event) {
     reader.readAsText(file);
 }
 
-// Uitvoeren zodra DOM geladen is
 document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
     init();
